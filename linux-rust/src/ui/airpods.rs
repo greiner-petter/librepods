@@ -5,7 +5,7 @@ use iced::overlay::menu;
 use iced::widget::button::Style;
 use iced::widget::rule::FillMode;
 use iced::widget::{
-    Space, button, column, combo_box, container, row, rule, text, text_input, toggler,
+    Space, button, column, combo_box, container, row, rule, scrollable, text, text_input, toggler,
 };
 use iced::{Background, Border, Center, Color, Length, Padding, Theme};
 use log::error;
@@ -570,7 +570,7 @@ pub fn airpods_view<'a>(
         }
     }
 
-    container(column![
+    let content = container(column![
         rename_input,
         Space::new().height(Length::from(20)),
         listening_mode,
@@ -584,8 +584,10 @@ pub fn airpods_view<'a>(
         information_col
     ])
     .padding(20)
-    .center_x(Length::Fill)
-    .height(Length::Fill)
+    .center_x(Length::Fill);
+
+    container(scrollable(content).height(Length::Fill))
+        .height(Length::Fill)
 }
 
 fn level_meter<'a>(level: f32, app: Option<String>) -> iced::widget::Container<'a, Message> {
