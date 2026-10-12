@@ -9,14 +9,14 @@ use crate::devices::enums::{
 use crate::ui::airpods::airpods_view;
 use crate::ui::messages::BluetoothUIMessage;
 use crate::ui::nothing::nothing_view;
-use crate::utils::{AppSettings, MyTheme, get_devices_path};
+use crate::utils::{AppSettings, MyTheme, PreferredCodec, get_devices_path};
 use bluer::Address;
 use iced::border::Radius;
 use iced::overlay::menu;
 use iced::widget::button::Style;
 use iced::widget::rule::FillMode;
 use iced::widget::{
-    Space, button, column, combo_box, container, pane_grid, row, rule, scrollable, text,
+    Space, button, column, combo_box, container, pane_grid, pick_list, row, rule, scrollable, text,
     text_input, toggler,
 };
 use iced::{
@@ -87,6 +87,7 @@ pub struct App {
     hires_mic_agc: bool,
     hires_mic_pause_convo: bool,
     a2dp_reset: bool,
+    preferred_codec: PreferredCodec,
 }
 
 pub struct BluetoothState {
@@ -123,6 +124,7 @@ pub enum Message {
     HiResMicAgcChanged(bool),
     HiResMicPauseConvoChanged(bool),
     MicLevelTick,
+    PreferredCodecChanged(PreferredCodec),
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -169,6 +171,7 @@ impl App {
         let hires_mic_agc = app_settings.hires_mic_agc;
         let hires_mic_pause_convo = app_settings.hires_mic_pause_convo;
         let a2dp_reset = app_settings.a2dp_reset;
+        let preferred_codec = app_settings.preferred_codec;
 
         let bluetooth_state = BluetoothState::new();
 
@@ -224,6 +227,7 @@ impl App {
                 hires_mic_agc,
                 hires_mic_pause_convo,
                 a2dp_reset,
+                preferred_codec,
             },
             Task::batch(vec![open_task, wait_task]),
         )
@@ -238,6 +242,7 @@ impl App {
             hires_mic_agc: self.hires_mic_agc,
             hires_mic_pause_convo: self.hires_mic_pause_convo,
             a2dp_reset: self.a2dp_reset,
+            preferred_codec: self.preferred_codec,
         }
         .save();
     }
@@ -647,6 +652,11 @@ impl App {
                 self.save_settings();
                 Task::none()
             }
+            Message::PreferredCodecChanged(codec) => {
+                self.preferred_codec = codec;
+                self.save_settings();
+                Task::none()
+            }
             Message::StemControlChanged(is_enabled) => {
                 self.stem_control = is_enabled;
                 self.save_settings();
@@ -939,6 +949,45 @@ impl App {
                             }
                         }
                         Tab::Settings => {
+                            let preferred_codec_picker = container(
+                                row![
+                                    column![
+                                        text("Preferred audio codec").size(16),
+                                        text("Codec to activate for playback. The others are used as fallbacks if the chosen one is unavailable.").size(12).style(
+                                            |theme: &Theme| {
+                                                let mut style = text::Style::default();
+                                                style.color = Some(theme.palette().text.scale_alpha(0.7));
+                                                style
+                                            }
+                                        ).width(Length::Fill)
+                                    ].width(Length::Fill),
+                                    pick_list(
+                                        PreferredCodec::ALL,
+                                        Some(self.preferred_codec),
+                                        Message::PreferredCodecChanged,
+                                    )
+                                    ]
+                                        .align_y(Center)
+                                        .spacing(12)
+                                    )
+                                        .padding(Padding{
+                                            top: 5.0,
+                                            bottom: 5.0,
+                                            left: 18.0,
+                                            right: 18.0,
+                                        })
+                                        .style(
+                                            |theme: &Theme| {
+                                                let mut style = container::Style::default();
+                                                style.background = Some(Background::Color(theme.palette().primary.scale_alpha(0.1)));
+                                                let mut border = Border::default();
+                                                border.color = theme.palette().primary.scale_alpha(0.5);
+                                                style.border = border.rounded(16);
+                                                style
+                                            }
+                                        )
+                                    .align_y(Center);
+
                             let tray_text_mode_toggle = container(
                                 row![
                                     column![
@@ -1231,6 +1280,26 @@ impl App {
                                         )
                                     .align_y(Center);
 
+                            let audio_settings_col = column![
+                                container(
+                                    text("Audio").size(20).style(
+                                        |theme: &Theme| {
+                                            let mut style = text::Style::default();
+                                            style.color = Some(theme.palette().primary);
+                                            style
+                                        }
+                                    )
+                                )
+                                .padding(Padding{
+                                    top: 0.0,
+                                    bottom: 0.0,
+                                    left: 18.0,
+                                    right: 18.0,
+                                }),
+                                preferred_codec_picker
+                            ]
+                            .spacing(12);
+
                             let controls_settings_col = column![
                                 container(
                                     text("Controls").size(20).style(
@@ -1258,6 +1327,8 @@ impl App {
                                     tray_text_mode_toggle,
                                     Space::new().height(Length::from(20)),
                                     controls_settings_col,
+                                    Space::new().height(Length::from(20)),
+                                    audio_settings_col,
                                     Space::new().height(Length::from(20)),
                                     a2dp_reset_toggle,
                                     Space::new().height(Length::from(20)),
